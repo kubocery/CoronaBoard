@@ -5,7 +5,7 @@ source('coronaplot4.R')
 source('SEIR2.R')
 
 a1 <- list('None'='None')
-inp <- list('China'='China','Hubei'='Hubei','Japan' ='Japan','South Korea'='Korea','USA'='US',
+inp <- list('China'='China','Japan' ='Japan','South Korea'='Korea','USA'='US',
             'France'='France','Canada'='Canada','Australia' = 'Australia','Germany'='Germany','Italy'='Italy',
             'United Kingdom'='United Kingdom','Russia'='Russia','Sweden'='Sweden','Spain'='Spain','Belgium'='Belgium','Iran' ='Iran',
             'Croatia'='Croatia','Switzerland'="Switzerland",'Austria'='Austria','Israel'='Israel','Greece'='Greece',
@@ -16,7 +16,7 @@ inp <- list('China'='China','Hubei'='Hubei','Japan' ='Japan','South Korea'='Kore
 inp3 <- inp[order(names(inp))][c(2,1,3:length(names(inp)))]
 inp2 <- c(a1,inp[order(names(inp))])
 
-header <- dashboardHeader(title = "Coronaboard v1.0")
+header <- dashboardHeader(title = "CoronaBoard")
 
 sidebar <- dashboardSidebar(
   sidebarMenu(id='menu',

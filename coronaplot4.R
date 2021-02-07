@@ -4,101 +4,44 @@ countries <- c('China', 'Japan','Korea, South','US','France','Canada','Australia
                'Czechia','Hungary','Slovenia','Serbia','Bosnia and Herzegovina','Romania','Ukraine','Estonia','Latvia',
                'Lithuania','Denmark','Ireland','Bulgaria', 'Belarus')
 
-
-#rds <- tempfile(pattern = ".rds")
-#url3 = "https://gitee.com/timze/historicaldata/raw/master/github_data.rds"
-#downloader::download(url3, destfile = rds, quiet = TRUE)
-#a <-nCov2019::load_nCov2019(lang='en')
-#x <- nCov2019::get_nCov2019(lang = 'en')
-
-#df_alt <- a$global
-#df_today <- x$global
-#df_today$time <- lubridate::today()-1
-#df_alt <- df_alt[complete.cases(df_alt),]
-#df_alt <- merge(df_alt, df_today[,c('name', 'time', 'confirm', 'dead','heal')],
-#                by.x = c('country', 'time'), by.y=c('name', 'time'), all.x=TRUE )
-
-#df_alt$cum_confirm <- ifelse(df_alt$cum_confirm>=df_alt$confirm | is.na(df_alt$confirm), df_alt$cum_confirm, df_alt$confirm)
-#df_alt$cum_heal <- ifelse(df_alt$cum_heal>=df_alt$heal | is.na(df_alt$heal), df_alt$cum_heal, df_alt$heal)
-#df_alt$cum_dead <- ifelse(df_alt$cum_dead>=df_alt$dead | is.na(df_alt$dead), df_alt$cum_dead, df_alt$dead)
-
-#df_alt <- df_alt[,1:5]
-
+get_n_formate <- function(link, countries){
+  df <- read.csv(url(link), sep=',', stringsAsFactors = F)
+  df <- df[df$Country.Region %in% countries,!c(names(df)%in% c('Lat','Long', 'Province.State'))]
+  df2 <- tidyr::gather(df,key=time,value=df,-Country.Region)
+  df2 <- aggregate(df2$df, by=list(df2$Country.Region,df2$time), FUN=sum) 
+  colnames(df2)<- c('Country','Date','df')
+  df2$Date <- zoo::as.Date(as.character(df2$Date), 'X%m.%d.%y')
+  return(df2)
+}
 
 link <- 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv'
-cases <- read.csv(url(link), sep=',', stringsAsFactors = F)
-cases <- cases[cases$Country.Region %in% countries,]
-cases <- cases[,!c(names(cases)%in% c('Lat','Long'))]
-cases[cases$Province.State=='Hubei',2]<-'Hubei'
-cases$Province.State<-NULL
-cases2 <- tidyr::gather(cases,key=time,value=cases,-Country.Region)
-cases2 <- aggregate(cases2$cases, by=list(cases2$Country.Region,cases2$time), FUN=sum) 
-colnames(cases2)<- c('Country','Date','Cases')
-cases2$Date <- zoo::as.Date(as.character(cases2$Date), 'X%m.%d.%y')
-rm(cases)
-
+cases <- get_n_formate(link, countries)
 
 link <- 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv'
-deaths <- read.csv(url(link), sep=',', stringsAsFactors = F)
-deaths <- deaths[deaths$Country.Region %in% countries,]
-deaths <- deaths[,!c(names(deaths)%in% c('Lat','Long'))]
-deaths[deaths$Province.State=='Hubei',2]<-'Hubei'
-deaths$Province.State<-NULL
-deaths2 <- tidyr::gather(deaths,key=time,value=deaths,-Country.Region)
-deaths2 <- aggregate(deaths2$deaths, by=list(deaths2$Country.Region,deaths2$time), FUN=sum) 
-colnames(deaths2)<- c('Country','Date','deaths')
-deaths2$Date <- zoo::as.Date(as.character(deaths2$Date), 'X%m.%d.%y')
-rm(deaths)
-
+deaths <- get_n_formate(link, countries)
 
 link <- 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv'
-recover <- read.csv(url(link), sep=',', stringsAsFactors = F)
-recover <- recover[recover$Country.Region %in% countries,]
-colnames(recover)[1]<- 'Province.State'
-recover <- recover[,!c(names(recover)%in% c('Lat','Long'))]
-recover[recover$Province.State=='Hubei',2]<-'Hubei'
-recover$Province.State<-NULL
-recover2 <- tidyr::gather(recover,key=time,value=recover,-Country.Region)
-recover2 <- aggregate(recover2$recover, by=list(recover2$Country.Region,recover2$time), FUN=sum) 
-colnames(recover2)<- c('Country','Date','recover')
-recover2$Date <- zoo::as.Date(as.character(recover2$Date), 'X%m.%d.%y')
-rm(recover)
-
-#link <-'https://raw.githubusercontent.com/datasets/population/master/data/population.csv'
-#pop <- read.csv2(url(link), sep=',', dec='.', stringsAsFactors = F)
-#pop <- pop %>% group_by(Country.Code) %>% filter(Year==max(Year)) %>% ungroup()
-#old <- countries[!c(countries %in% pop$Country.Name)]
-
-dftmp <- merge(cases2, deaths2, by.x=c('Country','Date'), by.y=c('Country','Date'))
-df <- merge(dftmp, recover2, by.x=c('Country','Date'), by.y=c('Country','Date'), all.x = T)
-
-#df_alt$country[df_alt$country=='South Korea'] <- 'Korea, South'
-#df_alt$country[df_alt$country=='Czech republic'] <- 'Czechia'
-#df_alt$country[df_alt$country=='United States'] <- 'US'
+recover <- get_n_formate(link, countries)
 
 
-#df <- merge(df, df_alt, by.x=c('Country', 'Date'), by.y = c('country', 'time'), all.x = TRUE)
-#df$Cases <- ifelse(df$Cases>=df$cum_confirm | is.na(df$cum_confirm), df$Cases, df$cum_confirm)
-#df$deaths <- ifelse(df$deaths>=df$cum_dead | is.na(df$cum_dead), df$deaths, df$cum_dead)
-#df$recover <- ifelse(df$recover>=df$cum_heal | is.na(df$cum_heal), df$recover, df$cum_heal)
-#df$recover <- ifelse(is.na(df$recover),  df$cum_heal,df$recover)
+dftmp <- merge(cases, deaths, by.x=c('Country','Date'), by.y=c('Country','Date'))
+df <- merge(dftmp, recover, by.x=c('Country','Date'), by.y=c('Country','Date'), all.x = T)
+names(df) <- c('Country','Date','Cases','Deaths','Recovered')
 
-
-#df <- df[,1:5]
 
 df <- df %>% group_by(Country) %>% 
   mutate(change = ifelse(Cases == dplyr::lag(Cases) & Date == as.Date('2020-03-12'),
                                                           'TRUE', 'FALSE')) %>% ungroup()
 
 df$Cases[df$change==TRUE]<- NA
-df$deaths[df$change==TRUE & df$Country %in% c('Italy', 'France','Germany','Switzerland','Spain')]<- NA
-df$recover[df$change==TRUE & df$Country %in% c('Italy', 'France','Germany','Switzerland','Spain')]<- NA
+df$Deaths[df$change==TRUE & df$Country %in% c('Italy', 'France','Germany','Switzerland','Spain')]<- NA
+df$Recovered[df$change==TRUE & df$Country %in% c('Italy', 'France','Germany','Switzerland','Spain')]<- NA
 
 
 require(zoo)
 df <- transform(df, newCol = ave(Cases, Country, FUN = function(x) na.approx(x, rule = 2)))
-df <- transform(df, newCol2 = ave(deaths, Country, FUN = function(x) na.approx(x, rule = 2)))
-df <- transform(df, newCol3 = ave(recover, Country, FUN = function(x) na.approx(x, rule = 2)))
+df <- transform(df, newCol2 = ave(Deaths, Country, FUN = function(x) na.approx(x, rule = 2)))
+df <- transform(df, newCol3 = ave(Recovered, Country, FUN = function(x) na.approx(x, rule = 2)))
 
 df$Cases <- round(df$newCol)
 df$deaths <- round(df$newCol2)
