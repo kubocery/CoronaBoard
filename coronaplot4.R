@@ -28,15 +28,13 @@ dftmp <- merge(cases, deaths, by.x=c('Country','Date'), by.y=c('Country','Date')
 df <- merge(dftmp, recover, by.x=c('Country','Date'), by.y=c('Country','Date'), all.x = T)
 names(df) <- c('Country','Date','Cases','Deaths','Recovered')
 
-
+#Fix for errorenous date 12.3.2020
 df <- df %>% group_by(Country) %>% 
   mutate(change = ifelse(Cases == dplyr::lag(Cases) & Date == as.Date('2020-03-12'),
                                                           'TRUE', 'FALSE')) %>% ungroup()
-
 df$Cases[df$change==TRUE]<- NA
 df$Deaths[df$change==TRUE & df$Country %in% c('Italy', 'France','Germany','Switzerland','Spain')]<- NA
 df$Recovered[df$change==TRUE & df$Country %in% c('Italy', 'France','Germany','Switzerland','Spain')]<- NA
-
 
 require(zoo)
 df <- transform(df, newCol = ave(Cases, Country, FUN = function(x) na.approx(x, rule = 2)))
@@ -44,16 +42,15 @@ df <- transform(df, newCol2 = ave(Deaths, Country, FUN = function(x) na.approx(x
 df <- transform(df, newCol3 = ave(Recovered, Country, FUN = function(x) na.approx(x, rule = 2)))
 
 df$Cases <- round(df$newCol)
-df$deaths <- round(df$newCol2)
-df$recover <- round(df$newCol3)
-
+df$Deaths <- round(df$newCol2)
+df$Recovered <- round(df$newCol3)
 
 df[,c('newCol','newCol2','newCol3', 'change')] <- NULL
 
 
-df$Active <- df$Cases-df$deaths-df$recover
+df$Active <- df$Cases-df$Deaths-df$Recovered
 
-rm(cases2, deaths2, recover2, dftmp)
+rm(cases, deaths, recover, dftmp)
 #pop2 <- data.frame(Country = unique(df$Country))
 #pop2 <- pop2 %>% left_join(select(pop, Country.Name,Value), by=c('Country'='Country.Name'))
 #pop2[is.na(pop2$Value),2]<- c(58500000, 1378665000-58500000, 5428704,65637239, 323127513)
