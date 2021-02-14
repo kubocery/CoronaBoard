@@ -121,13 +121,20 @@ coronaplot <- function(places, logscale = FALSE, smooth=FALSE){
                      "<b>Days since outbreak: </b>", df$Days, "<br>",
                      "<b>Active cases per 1M people: </b>", df$Active_on_pop, "<br>")
   
+  if(length(unique(plot_countries))<=1){
+    delta <- round(length(unique(df$Days))/20,0)  
+  }else{
+    delta <- round(length(unique(df$Days))/(20-4),0) 
+  }
+  
+  
   if(logscale==FALSE){
     if(smooth==FALSE){
       plot_ly(df, x = ~Days,y = ~Active_on_pop, color = ~Country,colors = pal) %>%
         add_lines(  text = hovertxt, hoverinfo = "text") %>% 
         layout(title = "Active Cases per 1 milion people", font = list(size = 12),
                xaxis = list(title = 'Days since outbreak', showgrid = T, showline = F,
-                            ticklen = 3, dtick = 2,zeroline = FALSE),
+                            ticklen = 3, dtick = delta,zeroline = FALSE),
                yaxis = list(title = "", showline = F, ticks = "outside", showgrid = TRUE, 
                             rangemode = "tozero",ticklen = 0,zeroline = FALSE,categoryarray = ~Country, categoryorder = "array"),
                annotations = list( 
@@ -139,12 +146,12 @@ coronaplot <- function(places, logscale = FALSE, smooth=FALSE){
     }else{
       plcase <- ggplot(df, aes(x=Days, y=Active_on_pop,color=Country))+
         #geom_line()+
-        geom_smooth(span =0.7,method = 'loess', se=F, size=0.6)+
+        geom_smooth(span =0.2,method = 'loess', se=F, size=0.6)+
         scale_color_manual(values=pal)+
         #scale_y_continuous(trans='log')+
         theme_minimal()+
-        scale_x_continuous(breaks = seq(2,round(max(df$Days)/2,0)*2,by=2))+
-        labs(title="New cases in the past 2 weeks",
+        scale_x_continuous(breaks = seq(2,round(max(df$Days)/2,0)*2,by=delta))+
+        labs(title="Active Cases per 1 milion people",
              x ="Days since outbreak", y = "New Cases")+
         theme(plot.caption=element_text( face="italic", color="black"),
               plot.title = element_text(hjust = 0.5),
@@ -158,6 +165,10 @@ coronaplot <- function(places, logscale = FALSE, smooth=FALSE){
               legend.key.size = unit(0.2, "cm"),
               plot.margin = margin(l=10,r=10,b=10,t=25))
       
+      if(length(unique(plot_countries))<=1){
+        plcase <- plcase + theme(legend.position="none")
+      }
+      
       plotly::ggplotly(plcase,tooltip = 'Country')
     }
     
@@ -168,7 +179,7 @@ coronaplot <- function(places, logscale = FALSE, smooth=FALSE){
       add_lines(  text = hovertxt, hoverinfo = "text") %>% 
       layout(title = "Active Cases per 1 milion people", font = list(size = 12),
              xaxis = list(title = 'Days since outbreak', showgrid = T, showline = F,
-                          ticklen = 0, dtick = 2,zeroline = FALSE),
+                          ticklen = 0, dtick = delta,zeroline = FALSE),
              yaxis = list(type='log', title = "Log scale", showline = F, showgrid = T, 
                           rangemode = "tozero",zeroline = FALSE,showticklabels = T,
                           categoryarray = ~Country, categoryorder = "array"),
@@ -181,11 +192,11 @@ coronaplot <- function(places, logscale = FALSE, smooth=FALSE){
     }else{
     plcase <- ggplot(df, aes(x=Days, y=Active_on_pop,color=Country))+
       #geom_line()+
-      geom_smooth(span =0.7,method = 'loess', se=F, size=0.6)+
+      geom_smooth(span =0.2,method = 'loess', se=F, size=0.6)+
       scale_color_manual(values=pal)+
       scale_y_continuous(trans='log')+
       theme_minimal()+
-      scale_x_continuous(breaks = seq(2,round(max(df$Days)/2,0)*2,by=2))+
+      scale_x_continuous(breaks = seq(2,round(max(df$Days)/2,0)*2,by=delta))+
       labs(title="Active Cases per 1 milion people",
            x ="Days since outbreak", y = "Log Scale")+
       theme(plot.caption=element_text( face="italic", color="black"),
@@ -199,6 +210,9 @@ coronaplot <- function(places, logscale = FALSE, smooth=FALSE){
             legend.key.size = unit(0.2, "cm"),
             plot.margin = margin(l=10,r=10,b=10,t=25))
     
+    if(length(unique(plot_countries))<=1){
+      plcase <- plcase + theme(legend.position="none")
+    }
     plotly::ggplotly(plcase, tooltip = 'Country')
     }
   }
@@ -207,10 +221,22 @@ coronaplot <- function(places, logscale = FALSE, smooth=FALSE){
 
 
 coronamap <- function(){
-  df <- df2[df2$Date==max(df2$Date), c('Country', 'Active', 'Active_on_pop')]
-  dfl <- df2[df2$Date==(max(df2$Date)-1), c('Country', 'Active', 'Active_on_pop')]
-  df <- merge(df,dfl[,c('Country','Active')], by='Country')
-  df$New_cases <- df$Active.x-df$Active.y
+  df <- df2[df2$Date==max(df2$Date), c('Country', 'Cases', 'Active','Active_on_pop')]
+  dfl <- df2[df2$Date==(max(df2$Date)-1), c('Country', 'Cases','Active','Active_on_pop')]
+  df <- merge(df,dfl[,c('Country','Cases')], by='Country')
+  df$New_cases <- df$Cases.x-df$Cases.y
+  #fix new cases=0
+  for (i in df$Country[df$New_cases==0]) {
+    ncases<-0
+    k <-1
+    while(ncases==0) {
+      ncases <- df[df$Country==i,'Cases.x']-df2[df2$Date==(max(df2$Date)-k) & df2$Country == i, 'Cases']
+      k <- k+1
+    }
+    df[df$Country==i,'New_cases'] <- ncases
+  }
+  
+  
   url <- 'https://www.worldometers.info/coronavirus/'
   require(rvest)
   population <- url %>%
@@ -237,22 +263,27 @@ coronamap <- function(){
   dfpop3 <- merge(dfpop2, df, by.x='alpha.3', by.y = 'alpha.3', all.y = T)
   dfpop3$NewCases <- as.numeric(stringr::str_replace_all(substring(dfpop3$NewCases, 2), ',',''))
   dfpop3$NewCases <- ifelse(is.na(dfpop3$NewCases),dfpop3$New_cases, dfpop3$NewCases)
-  dfpop3$pop <- dfpop3$Active.x/dfpop3$Active_on_pop *1000000
-  dfpop3$Active_on_pop2 <- round(as.numeric(stringr::str_replace_all(dfpop3$ActiveCases, ',',''))/dfpop3$pop *1000000,1)
+  dfpop3$pop <- dfpop3$Active/dfpop3$Active_on_pop *1000000
+  dfpop3$Active_on_pop2 <- round(as.numeric(stringr::str_replace_all(dfpop3$Active, ',',''))/dfpop3$pop *1000000,1)
   
   df <- data.frame(Country=dfpop3$Country, ISO = dfpop3$alpha.3, 
-                   Active= as.numeric(stringr::str_replace_all(dfpop3$ActiveCases, ',','')),
+                   Active= as.numeric(stringr::str_replace_all(dfpop3$Active, ',','')),
                    Active_on_pop = dfpop3$Active_on_pop2,  New_cases=dfpop3$NewCases)
   
+  missingc <- c("Albania", "Montenegro","Moldova","North Macedonia")
+  dfpop4 <- dfpop2[dfpop2$`Country,Other`%in%missingc, c('Country,Other', 'ActiveCases', 'NewCases')]
+  dfpop4$ActiveCases <- as.numeric(stringr::str_replace_all(dfpop4$ActiveCases, ',',''))
+  dfpop4$ISO <- c('ALB','MNE', 'MDA', 'MKD')
+  dfpop4$Active_on_pop <- dfpop4$ActiveCases/c(2875914, 621873, 4028340, 2083323) *1000000
+  dfpop4$NewCases <- as.numeric(stringr::str_replace_all(substring(dfpop4$NewCases, 2), ',',''))
+  dfpop4 <- dfpop4[,c(1,4,2,5,3)]
+  names(dfpop4)<- names(df)
+  
+  dfmap <- rbind(df, dfpop4)
+  
   #df$buckets <- cut(df$Active_on_pop, quantile(df$Active_on_pop, probs = seq(0,1,length.out=8)))
-  df$hover <- paste0('Country: ',df$Country,'<br>','Active cases: ',df$Active,  '<br>',
-                     'Active cases per milion: ', df$Active_on_pop, '<br>','New active cases: ', df$New_cases)
-  
-  
-  #LAND_ISO <- c("AUT","BEL","BGR","HRV","CYP","CZE","DNK","EST","FIN","FRA","DEU","GRC","HUN","IRL","ITA","LVA","LTU","LUX","MLT","NLD","POL","PRT","ROU","SVK","SVN","ESP","SWE","GBR")
-  #value <- runif(length(LAND_ISO), 1, 10)
-  
-  #data <- data.frame(LAND_ISO, value)
+  dfmap$hover <- paste0('Country: ',dfmap$Country,'<br>','Active cases: ',dfmap$Active,  '<br>',
+                     'Active cases per milion: ', dfmap$Active_on_pop, '<br>','New active cases: ', dfmap$New_cases)
   
   # Run your code:
   g <- list(
@@ -266,7 +297,7 @@ coronamap <- function(){
   #  t = 40
   #)
   
-  plot_geo(df) %>%
+  plot_geo(dfmap) %>%
     add_trace(
       z = ~log(Active_on_pop+0.5), locations = ~ISO,text = ~hover,hoverinfo='text',
       color = ~log(Active_on_pop+0.5), colors = 'Blues', showscale = F
@@ -329,9 +360,9 @@ new_cases_smooth <- function(places, logscale=FALSE){
   
   
   if(logscale==TRUE){
-    plcase <- ggplot(df, aes(x=Date, y=first_diff,color=Country))+
+    plcase <- ggplot(df, aes(x=Date, y=log(first_diff),color=Country))+
       #geom_line()+
-      geom_smooth(span =0.7,method = 'loess', se=F, size=0.5)+
+      geom_smooth(span =0.5,method = 'loess', se=F, size=0.5)+
       scale_color_manual(values=pal)+
       scale_y_continuous(trans='log')+
       theme_minimal()+
@@ -351,7 +382,7 @@ new_cases_smooth <- function(places, logscale=FALSE){
   }else{
     plcase <- ggplot(df, aes(x=Date, y=first_diff,color=Country))+
       #geom_line()+
-      geom_smooth(span =0.7,method = 'loess', se=F, size=0.5)+
+      geom_smooth(span =0.5,method = 'loess', se=F, size=0.5)+
       scale_color_manual(values=pal)+
       #scale_y_continuous(trans='log')+
       theme_minimal()+
@@ -368,7 +399,9 @@ new_cases_smooth <- function(places, logscale=FALSE){
             plot.margin = margin(l=10,r=10,b=10,t=25))
   }
   
- 
+  if(length(unique(plot_countries))<=1){
+    plcase <- plcase + theme(legend.position="none")
+  }
   
   #plot(plcase)
   plotly::ggplotly(plcase,tooltip='Country')
@@ -461,7 +494,9 @@ new_cases_raw <- function(places, logscale=FALSE){
             plot.margin = margin(l=10,r=10,b=10,t=25))
   }
   
-  
+  if(length(unique(plot_countries))<=1){
+    plcase <- plcase + theme(legend.position="none")
+  }
   #plot(plcase)
   plotly::ggplotly(plcase,tooltip=c('Country', 'New cases'))
 }
