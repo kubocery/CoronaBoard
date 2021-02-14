@@ -1,0 +1,12 @@
+name: CoronaBoard
+title: CoronaBoard
+username:
+account: jakubcery
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1998564
+bundleId: 4195641
+url: https://jakubcery.shinyapps.io/Coronaboard/
+when: 1612786928.88153
+asMultiple: FALSE
+asStatic: FALSE
